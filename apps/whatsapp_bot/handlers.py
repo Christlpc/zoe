@@ -119,12 +119,17 @@ class ConversationHandler:
                 data = response.json()
                 agent_data = data['data']['agent']
                 
-                # Récupérer l'agent Django
-                agent = Agent.objects.get(matricule=matricule)
+                # Récupérer l'agent Django (on gère le cas où la table agents n'existe pas localement)
+                agent = None
+                try:
+                    agent = Agent.objects.filter(matricule=matricule).first()
+                except Exception as e:
+                    logger.warning(f"⚠️ Table agents inaccessible: {e}")
                 
                 # Associer l'agent à la session
-                self.session.agent = agent
+                self.session.agent = agent if agent else None
                 self.session.update_context('access_token', data['data']['access'])
+                self.session.update_context('agent_name', agent_data['nom_complet'])
                 self.session.current_state = 'MENU_PRINCIPAL'
                 self.session.save()
                 

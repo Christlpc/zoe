@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                 ('is_active', models.BooleanField(default=True)),
                 ('last_activity', models.DateTimeField(auto_now=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('agent', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='whatsapp_sessions', to='borne_auth.agent')),
+                ('agent', models.ForeignKey(blank=True, db_constraint=False, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='whatsapp_sessions', to='borne_auth.agent')),
             ],
             options={
                 'db_table': 'whatsapp_sessions',

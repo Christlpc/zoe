@@ -24,10 +24,11 @@ class WhatsAppSession(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     agent = models.ForeignKey(
         Agent, 
-        on_delete=models.CASCADE, 
+        on_delete=models.SET_NULL, # On garde la session même si l'agent est supprimé
         null=True, 
         blank=True,
-        related_name='whatsapp_sessions'
+        related_name='whatsapp_sessions',
+        db_constraint=False  # IMPORTANT: Permet de migrer sans que la table 'agents' n'existe
     )
     phone_number = models.CharField(max_length=20, unique=True)
     current_state = models.CharField(max_length=50, choices=ETATS, default='ATTENTE_LOGIN')
