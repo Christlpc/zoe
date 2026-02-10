@@ -7,7 +7,9 @@ services:
     startCommand: "gunicorn core.wsgi:application --bind 0.0.0.0:$PORT"
     envVars:
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: zoe-db
+          property: connectionString
       - key: SECRET_KEY
         generateValue: true
       - key: DEBUG
@@ -22,3 +24,7 @@ services:
         sync: false
       - key: FIELD_ENCRYPTION_KEY
         generateValue: true
+
+databases:
+  - name: zoe-db
+    plan: free

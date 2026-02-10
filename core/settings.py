@@ -19,6 +19,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
+    # Bibliothèques tierces
+    'rest_framework',
+    
     # Apps locales
     'apps.borne_auth',
     'apps.whatsapp_bot',
@@ -58,7 +61,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 DATABASES = {
     'default': dj_database_url.config(
-        default=config('DATABASE_URL', default=''),
+        default=config('DATABASE_URL', default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
         conn_max_age=600,
         conn_health_checks=True,
     )
@@ -101,7 +104,7 @@ WHATSAPP_VERIFY_TOKEN = config('WHATSAPP_VERIFY_TOKEN', 'nsia_whatsapp_2025')
 
 # Security Headers for Render
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-CSRF_TRUSTED_ORIGINS = ["https://*.onrender.com"]
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='https://*.onrender.com', cast=lambda v: [s.strip() for s in v.split(',')])
 
 # Chiffrement
 FIELD_ENCRYPTION_KEY = config('FIELD_ENCRYPTION_KEY', default='dK_qYv7n9m5z8x2c1v3b4n5m6k7l8j9h_g6f5d4s3a2q1=')
