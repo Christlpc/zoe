@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('borne_auth', '0003_alter_agent_date_embauche'),
+        ('borne_auth', '0001_initial'),
     ]
 
     operations = [
