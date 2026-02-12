@@ -111,7 +111,7 @@ class ConversationHandler:
         # Appeler l'API de connexion
         try:
             response = requests.post(
-                f"{settings.API_BASE_URL}/api/v1/auth/agents/login/",
+                f"{settings.API_BASE_URL}/api/v1/auth/agent/login/",
                 json={"matricule": matricule, "telephone": password}
             )
             
