@@ -56,6 +56,11 @@ def whatsapp_webhook(request):
             if not phone_number or not text:
                 return JsonResponse({'status': 'invalid_data'})
             
+            # Vérifier si le message a déjà été traité (idempotence)
+            if message_id and WhatsAppMessage.objects.filter(whatsapp_message_id=message_id).exists():
+                logger.info(f"⏭️ Message {message_id} déjà traité, on ignore.")
+                return JsonResponse({'status': 'ok', 'detail': 'already processed'})
+
             # Créer ou récupérer la session
             session, created = WhatsAppSession.objects.get_or_create(
                 phone_number=phone_number,
