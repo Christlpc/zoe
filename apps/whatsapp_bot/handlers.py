@@ -574,7 +574,7 @@ class ConversationHandler:
             token = self.session.get_context('access_token')
             
             response = requests.get(
-                f"{settings.API_BASE_URL}/api/v1/auth/agent/profile/",
+                f"{settings.API_BASE_URL}/api/v1/agents/{self.session.get_context('agent_id')}/stats/",
                 headers={"Authorization": f"Bearer {token}"}
             )
             
