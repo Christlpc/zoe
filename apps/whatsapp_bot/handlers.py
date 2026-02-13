@@ -1372,26 +1372,26 @@ class ConversationHandler:
             message += f"• Prime totale : {int(res.get('prime_totale', 0)):,} FCFA\n"
             message += f"• Prime épargne : {int(res.get('prime_epargne', 0)):,} FCFA\n"
             message += f"• Prime décès : {int(res.get('prime_deces', 0)):,} FCFA\n"
-            message += f"• Rendement annuel : {res.get('rendement_annuel', 'N/A')}\n"
         
         elif 'pension' in produit:
-            message += f"• Prime mensuelle : {int(res.get('prime_mensuelle', 0)):,} FCFA\n"
-            message += f"• Prime annuelle : {int(res.get('prime_annuelle', 0)):,} FCFA\n"
-            message += f"• Pension mensuelle : {int(res.get('montant_pension_mensuel', 0)):,} FCFA\n"
-            message += f"• Durée : {res.get('duree_couverture', 'N/A')} ans\n"
+            message += f"• prime_totale : {int(res.get('prime_totale', 0)):,} FCFA\n"
+            message += f"• duree_couverture : {int(res.get('duree_couverture', 0)):,} ans\n"
+            message += f"• duree_service : {int(res.get('duree_service', 0)):,} FCFA\n"
+            message += f"• periodicite : {res.get('periodicite', 'N/A')} \n"
         
         elif produit == 'prevoyance':
-            message += f"• Prime mensuelle : {int(res.get('prime_mensuelle', 0)):,} FCFA\n"
-            message += f"• Prime annuelle : {int(res.get('prime_annuelle', 0)):,} FCFA\n"
+            message += f"• Prime_Commerciale : {int(res.get('Prime_Commerciale', 0)):,} FCFA\n"
+            message += f"• Frais_Accessoire : {int(res.get('Frais_Accessoire', 0)):,} FCFA\n"
+            message += f"• total_prime_periodique : {int(res.get('total_prime_periodique', 0)):,} FCFA\n"
             message += f"• Capital décès : {int(res.get('capital_deces', 0)):,} FCFA\n"
-            message += f"• Durée : {res.get('duree', 'N/A')} ans\n"
+            #message += f"• Durée : {res.get('duree', 'N/A')} ans\n"
         
         elif produit == 'etudes':
             message += f"• Prime annuelle : {int(res.get('prime_annuelle', 0)):,} FCFA\n"
             message += f"• Prime mensuelle : {int(res.get('prime_mensuelle', 0)):,} FCFA\n"
             message += f"• Rente annuelle : {int(res.get('montant_rente_annuel', 0)):,} FCFA\n"
             message += f"• Durée paiement : {res.get('duree_paiement', 'N/A')} ans\n"
-            message += f"• Durée service : {res.get('duree_service_rente', 'N/A')} ans\n"
+            message += f"• Durée service : {res.get('duree_service', 'N/A')} ans\n"
         
         message += f"\n✅ Simulation sauvegardée avec succès !\n\n"
         message += f"📱 Le client recevra les détails par SMS.\n\n"
