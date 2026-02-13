@@ -127,7 +127,7 @@ class ConversationHandler:
                     logger.warning(f"⚠️ Table agents inaccessible: {e}")"""
                 
                 # Associer l'agent à la session
-                self.session.agent = agent if agent else None
+                #self.session.agent = agent if agent else None
                 self.session.update_context('access_token', data['data']['tokens']['access'])
                 self.session.update_context('agent_name', agent_data['nom_complet'])
                 self.session.current_state = 'MENU_PRINCIPAL'
