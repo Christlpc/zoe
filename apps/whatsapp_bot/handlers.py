@@ -85,11 +85,11 @@ class ConversationHandler:
     # ========================================
     
     def handle_login(self):
-        """Gère la connexion de l'agent"""
+        """Gère la connexion de l'agent via l'API uniquement"""
         if self.message_text == "0":
             self.send_welcome()
             return
-        
+    
         # Vérifier format: matricule:motdepasse
         if ":" not in self.message_text:
             self.wa_service.send_text_message(
@@ -97,66 +97,99 @@ class ConversationHandler:
                 "❌ Format incorrect.\n\nUtilisez: MATRICULE:MOTDEPASSE\n\nExemple: AG-2025-001:monmotdepasse\n\n0 - Aide"
             )
             return
-        
-        parts = self.message_text.split(":")
+    
+        parts = self.message_text.split(":", 1)  # maxsplit=1 pour les mots de passe contenant ":"
         if len(parts) != 2:
             self.wa_service.send_text_message(
                 self.session.phone_number,
                 "❌ Format incorrect.\n\nUtilisez: MATRICULE:MOTDEPASSE"
             )
             return
-        
+    
         matricule, password = parts[0].strip(), parts[1].strip()
-        
-        # Appeler l'API de connexion
+    
         try:
             response = requests.post(
                 f"{settings.API_BASE_URL}/api/v1/auth/agent/login/",
-                json={"matricule": matricule, "telephone": password}
+                json={"matricule": matricule, "telephone": password},
+                timeout=10
             )
-            
+    
             if response.status_code == 200:
-                data = response.json()
-                agent_data = data['data']['agent']
-                
-                # Récupérer l'agent Django (on gère le cas où la table agents n'existe pas localement)
-                #agent = None
-                """try:
-                    agent = Agent.objects.filter(matricule=matricule).first()
-                except Exception as e:
-                    logger.warning(f"⚠️ Table agents inaccessible: {e}")"""
-                
-                # Associer l'agent à la session
-                #self.session.agent = agent if agent else None
-                self.session.update_context('access_token', data['data']['tokens']['access'])
-                self.session.update_context('agent_name', agent_data['nom_complet'])
+                data = response.json().get('data', {})
+                tokens = data.get('tokens', {})
+                agent_data = data.get('agent', {})
+                stats = data.get('statistiques', {})
+                session_info = data.get('session', {})
+    
+                # Stocker toutes les infos de session depuis l'API
+                self.session.update_context('access_token', tokens.get('access'))
+                self.session.update_context('refresh_token', tokens.get('refresh'))
+                self.session.update_context('token_expires_in', session_info.get('expires_in', 86400))
+                self.session.update_context('session_type', session_info.get('type'))
+    
+                # Stocker les données agent depuis l'API
+                self.session.update_context('agent_id', agent_data.get('id'))
+                self.session.update_context('agent_name', agent_data.get('nom_complet'))
+                self.session.update_context('agent_matricule', agent_data.get('matricule'))
+                self.session.update_context('agent_agence', agent_data.get('agence'))
+                self.session.update_context('agent_telephone', agent_data.get('telephone'))
+                self.session.update_context('agent_poste', agent_data.get('poste'))
+                self.session.update_context('agent_taux_commission', agent_data.get('taux_commission'))
+    
+                # Stocker les statistiques
+                self.session.update_context('stats_total_souscriptions', stats.get('total_souscriptions', 0))
+                self.session.update_context('stats_souscriptions_actives', stats.get('souscriptions_actives', 0))
+                self.session.update_context('stats_souscriptions_ce_mois', stats.get('souscriptions_ce_mois', 0))
+    
                 self.session.current_state = 'MENU_PRINCIPAL'
                 self.session.save()
-                
-                # Message de bienvenue
+    
                 self.wa_service.send_text_message(
                     self.session.phone_number,
                     f"✅ Connexion réussie !\n\n"
-                    f"👤 {agent_data['nom_complet']}\n"
-                    f"📍 {agent_data['agence']}\n"
-                    f"🆔 {agent_data['matricule']}"
+                    f"👤 {agent_data.get('nom_complet')}\n"
+                    f"📍 {agent_data.get('agence')}\n"
+                    f"🆔 {agent_data.get('matricule')}\n"
+                    f"💼 {agent_data.get('poste')}"
                 )
-                
-                # Afficher menu principal
+    
                 self.show_menu_principal()
-            else:
+    
+            elif response.status_code == 401:
                 self.wa_service.send_text_message(
                     self.session.phone_number,
-                    "❌ Identifiants incorrects.\n\nRéessayez: MATRICULE:MOTDEPASSE\n\n0 - Aide"
+                    "❌ Identifiants incorrects.\n\nVérifiez votre matricule et mot de passe.\n\nRéessayez: MATRICULE:MOTDEPASSE\n\n0 - Aide"
                 )
-        
-        except Exception as e:
-            logger.error(f"❌ Erreur login: {e}")
+    
+            else:
+                logger.warning(f"⚠️ Login échoué - status {response.status_code}: {response.text}")
+                self.wa_service.send_text_message(
+                    self.session.phone_number,
+                    "❌ Connexion impossible. Réessayez plus tard.\n\n0 - Aide"
+                )
+    
+        except requests.exceptions.Timeout:
+            logger.error("❌ Timeout lors du login API")
             self.wa_service.send_text_message(
                 self.session.phone_number,
-                "❌ Erreur de connexion. Réessayez plus tard."
+                "❌ Le serveur met trop de temps à répondre. Réessayez dans quelques instants."
             )
     
+        except requests.exceptions.ConnectionError:
+            logger.error("❌ Impossible de joindre l'API de connexion")
+            self.wa_service.send_text_message(
+                self.session.phone_number,
+                "❌ Service temporairement indisponible. Réessayez plus tard."
+            )
+    
+        except Exception as e:
+            logger.error(f"❌ Erreur inattendue lors du login: {e}", exc_info=True)
+            self.wa_service.send_text_message(
+                self.session.phone_number,
+                "❌ Une erreur est survenue. Réessayez plus tard."
+            )
+        
     # ========================================
     # MENU PRINCIPAL
     # ========================================
