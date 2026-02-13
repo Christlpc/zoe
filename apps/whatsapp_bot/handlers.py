@@ -1,3 +1,4 @@
+import re
 import logging
 from .services import WhatsAppService
 from .ai_service import AIService
@@ -17,7 +18,32 @@ class ConversationHandler:
         self.wa_service = WhatsAppService()
         self.ai_service = AIService()
 
-    
+    def _normalize_choice(self, text=None):
+        """
+        Normalise l'entrée utilisateur pour gérer les boutons/listes interactifs.
+
+        Gère les cas :
+        - Texte simple : "1" → "1"
+        - Bouton avec emoji : "1️⃣ Souscrire PASS" → "1"
+        - ID de liste : "batela" → "batela"
+        - Texte avec espaces : "  2  " → "2"
+        """
+        if text is None:
+            text = self.message_text
+        text = text.strip()
+
+        # Si c'est déjà un chiffre seul, retourner tel quel
+        if text.isdigit():
+            return text
+
+        # Extraire le premier chiffre (gère "1️⃣ Souscrire PASS" → "1")
+        match = re.match(r'(\d)', text)
+        if match:
+            return match.group(1)
+
+        # Retourner en minuscules pour le matching par mots-clés / IDs de liste
+        return text.lower()
+
     def handle(self):
         """Route vers le bon handler selon l'état"""
         state = self.session.current_state
@@ -34,6 +60,7 @@ class ConversationHandler:
             'PASS_CONFIRMATION': self.handle_pass_confirmation,
             'COMMISSIONS_MENU': self.handle_commissions,
             'SIMULATEUR_CHOIX': self.handle_simulateur_choix,
+            'SIMULATEUR_COLLECTE': self.handle_simulateur_collecte,
         }
         
         handler = handlers.get(state)
@@ -111,7 +138,7 @@ class ConversationHandler:
     
     def handle_login(self):
         """Gère la connexion de l'agent via l'API uniquement"""
-        if self.message_text == "0":
+        if self._normalize_choice() == "0":
             self.send_welcome()
             return
     
@@ -146,27 +173,24 @@ class ConversationHandler:
                 agent_data = data.get('agent', {})
                 stats = data.get('statistiques', {})
                 session_info = data.get('session', {})
-    
-                # Stocker toutes les infos de session depuis l'API
-                self.session.update_context('access_token', tokens.get('access'))
-                self.session.update_context('refresh_token', tokens.get('refresh'))
-                self.session.update_context('token_expires_in', session_info.get('expires_in', 86400))
-                self.session.update_context('session_type', session_info.get('type'))
-    
-                # Stocker les données agent depuis l'API
-                self.session.update_context('agent_id', agent_data.get('id'))
-                self.session.update_context('agent_name', agent_data.get('nom_complet'))
-                self.session.update_context('agent_matricule', agent_data.get('matricule'))
-                self.session.update_context('agent_agence', agent_data.get('agence'))
-                self.session.update_context('agent_telephone', agent_data.get('telephone'))
-                self.session.update_context('agent_poste', agent_data.get('poste'))
-                self.session.update_context('agent_taux_commission', agent_data.get('taux_commission'))
-    
-                # Stocker les statistiques
-                self.session.update_context('stats_total_souscriptions', stats.get('total_souscriptions', 0))
-                self.session.update_context('stats_souscriptions_actives', stats.get('souscriptions_actives', 0))
-                self.session.update_context('stats_souscriptions_ce_mois', stats.get('souscriptions_ce_mois', 0))
-    
+
+                # Stocker toutes les infos en une seule écriture DB
+                self.session.context.update({
+                    'access_token': tokens.get('access'),
+                    'refresh_token': tokens.get('refresh'),
+                    'token_expires_in': session_info.get('expires_in', 86400),
+                    'session_type': session_info.get('type'),
+                    'agent_id': agent_data.get('id'),
+                    'agent_name': agent_data.get('nom_complet'),
+                    'agent_matricule': agent_data.get('matricule'),
+                    'agent_agence': agent_data.get('agence'),
+                    'agent_telephone': agent_data.get('telephone'),
+                    'agent_poste': agent_data.get('poste'),
+                    'agent_taux_commission': agent_data.get('taux_commission'),
+                    'stats_total_souscriptions': stats.get('total_souscriptions', 0),
+                    'stats_souscriptions_actives': stats.get('souscriptions_actives', 0),
+                    'stats_souscriptions_ce_mois': stats.get('souscriptions_ce_mois', 0),
+                })
                 self.session.current_state = 'MENU_PRINCIPAL'
                 self.session.save()
     
@@ -221,28 +245,33 @@ class ConversationHandler:
     
     def handle_menu_principal(self):
         """Gère le menu principal"""
-        if self.message_text == "1":
+        choix = self._normalize_choice()
+
+        if choix == "1" or "souscrire" in choix or choix == "menu_1":
             # Souscription PASS
             self.session.current_state = 'PASS_CHOIX_PRODUIT'
-            self.session.reset_context()
+            self.session.context = {
+                k: v for k, v in self.session.context.items()
+                if k.startswith('agent_') or k.startswith('access_') or k.startswith('refresh_') or k.startswith('stats_') or k.startswith('token_') or k.startswith('session_')
+            }
             self.session.save()
             self.show_pass_produits()
-        
-        elif self.message_text == "2":
+
+        elif choix == "2" or "commission" in choix or choix == "menu_2":
             # Commissions
             self.session.current_state = 'COMMISSIONS_MENU'
             self.session.save()
             self.show_commissions()
-        
-        elif self.message_text == "3":
+
+        elif choix == "3" or "simulateur" in choix or "simulation" in choix or choix == "menu_3":
             # Simulateur
             self.session.current_state = 'SIMULATEUR_CHOIX'
             self.session.save()
             self.show_simulateur_produits()
-        
-        elif self.message_text == "0":
+
+        elif choix == "0":
             self.show_menu_principal()
-        
+
         else:
             self.send_error("Option invalide. Choisissez 1, 2, 3 ou 0.")
     
@@ -304,8 +333,8 @@ class ConversationHandler:
             "kimia": {"code": "kimia", "nom": "KIMIA", "id": 2},
             "salisa": {"code": "salisa", "nom": "SALISA", "id": 3},
         }
-        
-        choix = self.message_text.lower()
+
+        choix = self._normalize_choice()
         
         if choix == "0":
             self.session.current_state = 'MENU_PRINCIPAL'
@@ -352,20 +381,25 @@ class ConversationHandler:
         recurrences = {
             "1": "quotidien",
             "2": "mensuel",
-            "3": "unique"
+            "3": "unique",
+            "quotidien": "quotidien",
+            "mensuel": "mensuel",
+            "unique": "unique",
         }
-        
-        if self.message_text == "0":
+
+        choix = self._normalize_choice()
+
+        if choix == "0":
             self.session.current_state = 'PASS_CHOIX_PRODUIT'
             self.session.save()
             self.show_pass_produits()
             return
-        
-        if self.message_text not in recurrences:
+
+        if choix not in recurrences:
             self.send_error("Récurrence invalide. Choisissez 1, 2, 3 ou 0.")
             return
-        
-        recurrence = recurrences[self.message_text]
+
+        recurrence = recurrences[choix]
         self.session.update_context('type_recurrence', recurrence)
         self.session.current_state = 'PASS_COLLECTE_NOM'
         self.session.save()
@@ -377,9 +411,26 @@ class ConversationHandler:
     
     def handle_pass_collecte_nom(self):
         """Collecte le nom du client"""
-        if self.message_text == "0":
+        if self._normalize_choice() == "0":
             self.session.current_state = 'PASS_CHOIX_RECURRENCE'
             self.session.save()
+            # Renvoyer les options de récurrence
+            produit_nom = self.session.get_context('produit_nom', '')
+            if produit_nom == 'BATELA':
+                msg = (
+                    f"📅 Choisissez la récurrence :\n\n"
+                    f"1️⃣ Quotidien - 200 FCFA/jour\n"
+                    f"2️⃣ Mensuel - 6 000 FCFA/mois\n"
+                    f"3️⃣ Unique - 72 200 FCFA\n\n0️⃣ Retour"
+                )
+            else:
+                msg = (
+                    f"📅 Choisissez la récurrence :\n\n"
+                    f"1️⃣ Quotidien - 100 FCFA/jour\n"
+                    f"2️⃣ Mensuel - 3 000 FCFA/mois\n"
+                    f"3️⃣ Unique - 22 205 FCFA\n\n0️⃣ Retour"
+                )
+            self.wa_service.send_text_message(self.session.phone_number, msg)
             return
         
         self.session.update_context('client_nom', self.message_text.upper())
@@ -393,9 +444,13 @@ class ConversationHandler:
     
     def handle_pass_collecte_prenom(self):
         """Collecte le prénom"""
-        if self.message_text == "0":
+        if self._normalize_choice() == "0":
             self.session.current_state = 'PASS_COLLECTE_NOM'
             self.session.save()
+            self.wa_service.send_text_message(
+                self.session.phone_number,
+                f"📝 Nom du client ?\n\n0️⃣ Retour"
+            )
             return
         
         self.session.update_context('client_prenom', self.message_text.capitalize())
@@ -412,9 +467,13 @@ class ConversationHandler:
     
     def handle_pass_collecte_telephone(self):
         """Collecte le téléphone"""
-        if self.message_text == "0":
+        if self._normalize_choice() == "0":
             self.session.current_state = 'PASS_COLLECTE_PRENOM'
             self.session.save()
+            self.wa_service.send_text_message(
+                self.session.phone_number,
+                f"📝 Prénom du client ?\n\n0️⃣ Retour"
+            )
             return
         
         # Normaliser téléphone
@@ -437,9 +496,13 @@ class ConversationHandler:
     
     def handle_pass_collecte_naissance(self):
         """Collecte date de naissance"""
-        if self.message_text == "0":
+        if self._normalize_choice() == "0":
             self.session.current_state = 'PASS_COLLECTE_TELEPHONE'
             self.session.save()
+            self.wa_service.send_text_message(
+                self.session.phone_number,
+                f"📞 Téléphone du client ?\nFormat: +242061234567 ou 061234567\n\n0️⃣ Retour"
+            )
             return
         
         # Valider format date
@@ -496,15 +559,15 @@ class ConversationHandler:
     
     def handle_pass_confirmation(self):
         """Gère la confirmation finale"""
-        choix = self.message_text.upper()
-        
+        choix = self._normalize_choice()
+
         if choix == "0":
             self.session.current_state = 'MENU_PRINCIPAL'
             self.session.save()
             self.show_menu_principal()
             return
-        
-        if choix == "N":
+
+        if choix in ("n", "non"):
             self.wa_service.send_text_message(
                 self.session.phone_number,
                 "❌ Souscription annulée.\n\nRetour au menu..."
@@ -513,11 +576,11 @@ class ConversationHandler:
             self.session.save()
             self.show_menu_principal()
             return
-        
-        if choix != "O":
+
+        if choix not in ("o", "oui"):
             self.send_error("Répondez O (oui) ou N (non).")
             return
-        
+
         # Créer la souscription via API
         self.creer_souscription_pass()
     
@@ -561,15 +624,11 @@ class ConversationHandler:
                 )
                 
                 self.wa_service.send_text_message(self.session.phone_number, message)
-                
+
                 # Retour au menu
                 self.session.current_state = 'MENU_PRINCIPAL'
-                self.session.reset_context()
+                self.session.context = {}
                 self.session.save()
-                
-                # Afficher menu
-                import time
-                time.sleep(2)
                 self.show_menu_principal()
             
             else:
@@ -636,7 +695,7 @@ class ConversationHandler:
     
     def handle_commissions(self):
         """Gère le menu commissions"""
-        if self.message_text == "0":
+        if self._normalize_choice() == "0":
             self.session.current_state = 'MENU_PRINCIPAL'
             self.session.save()
             self.show_menu_principal()
@@ -709,8 +768,8 @@ class ConversationHandler:
             "prevoyance": "prevoyance",
             "etudes": "etudes"
         }
-        
-        choix = self.message_text.lower()
+
+        choix = self._normalize_choice()
         
         if choix == "0":
             self.session.current_state = 'MENU_PRINCIPAL'
@@ -831,13 +890,18 @@ class ConversationHandler:
     
     def handle_simulateur_collecte(self):
         """Gère la collecte progressive des données de simulation"""
-        if self.message_text == "0":
+        etape = self.session.get_context('simulateur_etape', 'nom')
+
+        # Si on est à la confirmation, déléguer au handler de confirmation
+        if etape == 'confirmation':
+            self.handle_simulateur_confirmation()
+            return
+
+        if self._normalize_choice() == "0":
             self.session.current_state = 'SIMULATEUR_CHOIX'
             self.session.save()
             self.show_simulateur_produits()
             return
-        
-        etape = self.session.get_context('simulateur_etape', 'nom')
         produit = self.session.get_context('simulateur_produit')
         data = self.session.get_context('simulateur_data', {})
         
@@ -1136,30 +1200,28 @@ class ConversationHandler:
     
     def handle_simulateur_confirmation(self):
         """Gère la confirmation du calcul"""
-        choix = self.message_text.upper()
-        
+        choix = self._normalize_choice()
+
         if choix == "0":
             self.session.current_state = 'MENU_PRINCIPAL'
             self.session.save()
             self.show_menu_principal()
             return
-        
-        if choix == "N":
+
+        if choix in ("n", "non"):
             self.wa_service.send_text_message(
                 self.session.phone_number,
                 "❌ Simulation annulée.\n\nRetour au menu..."
             )
             self.session.current_state = 'MENU_PRINCIPAL'
             self.session.save()
-            import time
-            time.sleep(1)
             self.show_menu_principal()
             return
-        
-        if choix != "O":
+
+        if choix not in ("o", "oui"):
             self.send_error("Répondez O (oui) ou N (non).")
             return
-        
+
         # Lancer le calcul
         self.calculer_simulation()
     
@@ -1242,8 +1304,6 @@ class ConversationHandler:
                 )
                 self.session.current_state = 'MENU_PRINCIPAL'
                 self.session.save()
-                import time
-                time.sleep(2)
                 self.show_menu_principal()
         
         except Exception as e:
@@ -1338,14 +1398,11 @@ class ConversationHandler:
         message += f"0️⃣ Retour menu"
         
         self.wa_service.send_text_message(self.session.phone_number, message)
-        
-        # Retour au menu après 3 secondes
+
+        # Retour au menu
         self.session.current_state = 'MENU_PRINCIPAL'
-        self.session.reset_context()
+        self.session.context = {}
         self.session.save()
-        
-        import time
-        time.sleep(3)
         self.show_menu_principal()
     
     # ========================================
