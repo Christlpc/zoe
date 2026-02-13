@@ -515,7 +515,7 @@ class ConversationHandler:
             }
             
             response = requests.post(
-                f"{settings.API_BASE_URL}/api/v1/pass/souscriptions/creer-avec-paiement/",
+                f"{settings.API_BASE_URL}/api/v1/paiements/nouvelle-souscription/",
                 json=payload,
                 headers={"Authorization": f"Bearer {token}"}
             )
@@ -574,7 +574,7 @@ class ConversationHandler:
             token = self.session.get_context('access_token')
             
             response = requests.get(
-                f"{settings.API_BASE_URL}/api/v1/auth/agents/profile/",
+                f"{settings.API_BASE_URL}/api/v1/auth/agent/profile/",
                 headers={"Authorization": f"Bearer {token}"}
             )
             
