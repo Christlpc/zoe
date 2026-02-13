@@ -16,9 +16,34 @@ class ConversationHandler:
         self.message_text = message_text.strip()
         self.wa_service = WhatsAppService()
         self.ai_service = AIService()
+
     
     def handle(self):
         """Route vers le bon handler selon l'état"""
+        state = self.session.current_state
+        
+        handlers = {
+            'ATTENTE_LOGIN': self.handle_login,
+            'MENU_PRINCIPAL': self.handle_menu_principal,
+            'PASS_CHOIX_PRODUIT': self.handle_pass_choix_produit,
+            'PASS_CHOIX_RECURRENCE': self.handle_pass_choix_recurrence,
+            'PASS_COLLECTE_NOM': self.handle_pass_collecte_nom,
+            'PASS_COLLECTE_PRENOM': self.handle_pass_collecte_prenom,
+            'PASS_COLLECTE_TELEPHONE': self.handle_pass_collecte_telephone,
+            'PASS_COLLECTE_NAISSANCE': self.handle_pass_collecte_naissance,
+            'PASS_CONFIRMATION': self.handle_pass_confirmation,
+            'COMMISSIONS_MENU': self.handle_commissions,
+            'SIMULATEUR_CHOIX': self.handle_simulateur_choix,
+        }
+        
+        handler = handlers.get(state)
+        if handler:
+            handler()
+        else:
+            self.send_error("État inconnu. Tapez 0 pour revenir au menu.")
+    
+    """def handle(self):
+        #Route vers le bon handler selon l'état
         state = self.session.current_state
         
         # Analyse IA si on est au menu principal et que le message est complexe
@@ -45,7 +70,7 @@ class ConversationHandler:
         if handler:
             handler()
         else:
-            self.send_error("État inconnu. Tapez 0 pour revenir au menu.")
+            self.send_error("État inconnu. Tapez 0 pour revenir au menu.")"""
     
     """def handle_ai_intent(self):
         #Détecte l'intention via l'IA et route vers le bon flux
