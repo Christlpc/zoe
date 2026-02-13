@@ -47,8 +47,8 @@ class ConversationHandler:
         else:
             self.send_error("État inconnu. Tapez 0 pour revenir au menu.")
     
-    def handle_ai_intent(self):
-        """Détecte l'intention via l'IA et route vers le bon flux"""
+    """def handle_ai_intent(self):
+        #Détecte l'intention via l'IA et route vers le bon flux
         if not self.ai_service.is_available():
             return False
             
@@ -78,7 +78,7 @@ class ConversationHandler:
             self.show_simulateur_produits()
             return True
             
-        return False
+        return False"""
 
     # ========================================
     # LOGIN AGENT
