@@ -226,7 +226,7 @@ class ConversationHandler:
         self.wa_service.send_interactive_buttons(
             self.session.phone_number,
             f"🏠 MENU PRINCIPAL - NSIA VIE\n\n"
-            f"Agent: {self.session.agent.nom_complet}\n\n"
+            f"Agent: {self.session.get_context('agent_name')}\n\n"
             f"Que souhaitez-vous faire ?",
             [
                 {"id": "menu_1", "title": "1️⃣ Souscrire PASS"},
