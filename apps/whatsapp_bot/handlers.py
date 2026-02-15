@@ -614,7 +614,8 @@ class ConversationHandler:
             response = requests.post(
                 f"{settings.API_BASE_URL}/api/v1/paiements/nouvelle-souscription/",
                 json=payload,
-                headers={"Authorization": f"Bearer {token}"}
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=15
             )
             
             if response.status_code in [200, 201]:
@@ -664,7 +665,8 @@ class ConversationHandler:
             
             response = requests.get(
                 f"{settings.API_BASE_URL}/api/v1/agents/{self.session.get_context('agent_id')}/stats/",
-                headers={"Authorization": f"Bearer {token}"}
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=15
             )
             
             if response.status_code == 200:
@@ -1285,7 +1287,8 @@ class ConversationHandler:
             response = requests.post(
                 f"{settings.API_BASE_URL}/api/v1/simulateur{endpoint}",
                 json={'parametres_simulation': parametres},
-                headers={'Authorization': f'Bearer {token}'}
+                headers={'Authorization': f'Bearer {token}'},
+                timeout=15
             )
             
             if response.status_code == 200:
@@ -1331,7 +1334,8 @@ class ConversationHandler:
             response = requests.post(
                 f"{settings.API_BASE_URL}/api/v1/simulateur/simulations/",
                 json=payload,
-                headers={'Authorization': f'Bearer {token}'}
+                headers={'Authorization': f'Bearer {token}'},
+                timeout=15
             )
             
             if response.status_code == 201:

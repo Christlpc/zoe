@@ -6,10 +6,22 @@ logger = logging.getLogger(__name__)
 
 class WhatsAppService:
     """Service d'envoi de messages WhatsApp via Wassenger"""
-    
+
+    # Session HTTP partagée pour réutiliser les connexions TCP
+    _http_session = None
+
+    @classmethod
+    def _get_http_session(cls):
+        if cls._http_session is None:
+            cls._http_session = requests.Session()
+            cls._http_session.headers.update({
+                "Token": settings.WASSENGER_API_KEY,
+                "Content-Type": "application/json",
+            })
+        return cls._http_session
+
     def __init__(self):
         self.api_url = "https://api.wassenger.com/v1/messages"
-        self.api_key = settings.WASSENGER_API_KEY
         self.device_id = settings.WASSENGER_DEVICE_ID
     
     def send_text_message(self, to_phone, text):
@@ -61,12 +73,8 @@ class WhatsAppService:
     def _send_request(self, payload):
         """Envoie la requête à l'API Wassenger"""
         try:
-            headers = {
-                "Token": self.api_key,
-                "Content-Type": "application/json"
-            }
-            
-            response = requests.post(self.api_url, json=payload, headers=headers)
+            session = self._get_http_session()
+            response = session.post(self.api_url, json=payload, timeout=10)
             response.raise_for_status()
             
             result = response.json()
