@@ -479,7 +479,7 @@ class ConversationHandler:
         # Normaliser téléphone
         phone = self.message_text.strip()
         if not phone.startswith('+242'):
-            phone = '+242' + phone.lstrip('0')
+            phone = '+2420' + phone.lstrip('0')
         
         self.session.update_context('client_telephone', phone)
         self.session.current_state = 'PASS_COLLECTE_NAISSANCE'
