@@ -44,6 +44,14 @@ class ConversationHandler:
         # Retourner en minuscules pour le matching par mots-clés / IDs de liste
         return text.lower()
 
+    def _clear_flow_context(self):
+        """Nettoie les données de flux (souscription/simulation) en gardant les données agent."""
+        keep_prefixes = ('agent_', 'access_', 'refresh_', 'stats_', 'token_', 'session_')
+        self.session.context = {
+            k: v for k, v in self.session.context.items()
+            if k.startswith(keep_prefixes)
+        }
+
     def handle(self):
         """Route vers le bon handler selon l'état"""
         state = self.session.current_state
@@ -193,17 +201,16 @@ class ConversationHandler:
                 })
                 self.session.current_state = 'MENU_PRINCIPAL'
                 self.session.save()
-    
-                self.wa_service.send_text_message(
-                    self.session.phone_number,
-                    f"✅ Connexion réussie !\n\n"
-                    f"👤 {agent_data.get('nom_complet')}\n"
-                    f"📍 {agent_data.get('agence')}\n"
-                    f"🆔 {agent_data.get('matricule')}\n"
-                    f"💼 {agent_data.get('poste')}"
+
+                self.show_menu_principal(
+                    prefix=(
+                        f"✅ Connexion réussie !\n\n"
+                        f"👤 {agent_data.get('nom_complet')}\n"
+                        f"📍 {agent_data.get('agence')}\n"
+                        f"🆔 {agent_data.get('matricule')}\n"
+                        f"💼 {agent_data.get('poste')}"
+                    )
                 )
-    
-                self.show_menu_principal()
     
             elif response.status_code == 401:
                 self.wa_service.send_text_message(
@@ -275,13 +282,19 @@ class ConversationHandler:
         else:
             self.send_error("Option invalide. Choisissez 1, 2, 3 ou 0.")
     
-    def show_menu_principal(self):
-        """Affiche le menu principal"""
-        self.wa_service.send_interactive_buttons(
-            self.session.phone_number,
+    def show_menu_principal(self, prefix=""):
+        """Affiche le menu principal, avec un message optionnel au-dessus"""
+        body = ""
+        if prefix:
+            body = f"{prefix}\n\n─────────────\n\n"
+        body += (
             f"🏠 MENU PRINCIPAL - NSIA VIE\n\n"
             f"Agent: {self.session.get_context('agent_name')}\n\n"
-            f"Que souhaitez-vous faire ?",
+            f"Que souhaitez-vous faire ?"
+        )
+        self.wa_service.send_interactive_buttons(
+            self.session.phone_number,
+            body,
             [
                 {"id": "menu_1", "title": "1️⃣ Souscrire PASS"},
                 {"id": "menu_2", "title": "2️⃣ Mes commissions"},
@@ -568,13 +581,9 @@ class ConversationHandler:
             return
 
         if choix in ("n", "non"):
-            self.wa_service.send_text_message(
-                self.session.phone_number,
-                "❌ Souscription annulée.\n\nRetour au menu..."
-            )
             self.session.current_state = 'MENU_PRINCIPAL'
             self.session.save()
-            self.show_menu_principal()
+            self.show_menu_principal(prefix="❌ Souscription annulée.")
             return
 
         if choix not in ("o", "oui"):
@@ -623,23 +632,19 @@ class ConversationHandler:
                     f"Le client doit valider le paiement Mobile Money."
                 )
                 
-                self.wa_service.send_text_message(self.session.phone_number, message)
-
-                # Retour au menu
+                # Retour au menu — garder les données agent
                 self.session.current_state = 'MENU_PRINCIPAL'
-                self.session.context = {}
+                self._clear_flow_context()
                 self.session.save()
-                self.show_menu_principal()
-            
+                self.show_menu_principal(prefix=message)
+
             else:
                 error = response.json().get('error', 'Erreur inconnue')
-                self.wa_service.send_text_message(
-                    self.session.phone_number,
-                    f"❌ Erreur lors de la création :\n{error}\n\nRetour au menu..."
-                )
                 self.session.current_state = 'MENU_PRINCIPAL'
                 self.session.save()
-                self.show_menu_principal()
+                self.show_menu_principal(
+                    prefix=f"❌ Erreur lors de la création :\n{error}"
+                )
         
         except Exception as e:
             logger.error(f"❌ Erreur création souscription: {e}")
@@ -1209,13 +1214,9 @@ class ConversationHandler:
             return
 
         if choix in ("n", "non"):
-            self.wa_service.send_text_message(
-                self.session.phone_number,
-                "❌ Simulation annulée.\n\nRetour au menu..."
-            )
             self.session.current_state = 'MENU_PRINCIPAL'
             self.session.save()
-            self.show_menu_principal()
+            self.show_menu_principal(prefix="❌ Simulation annulée.")
             return
 
         if choix not in ("o", "oui"):
@@ -1298,13 +1299,11 @@ class ConversationHandler:
             
             else:
                 error = response.json().get('error', 'Erreur calcul')
-                self.wa_service.send_text_message(
-                    self.session.phone_number,
-                    f"❌ Erreur lors du calcul :\n{error}\n\nRetour au menu..."
-                )
                 self.session.current_state = 'MENU_PRINCIPAL'
                 self.session.save()
-                self.show_menu_principal()
+                self.show_menu_principal(
+                    prefix=f"❌ Erreur lors du calcul :\n{error}"
+                )
         
         except Exception as e:
             logger.error(f"❌ Erreur calcul simulation: {e}")
@@ -1393,17 +1392,14 @@ class ConversationHandler:
             message += f"• Durée paiement : {res.get('duree_paiement', 'N/A')} ans\n"
             message += f"• Durée service : {res.get('duree_service_rente', 'N/A')} ans\n"
         
-        message += f"\n✅ Simulation sauvegardée avec succès !\n\n"
-        message += f"📱 Le client recevra les détails par SMS.\n\n"
-        message += f"0️⃣ Retour menu"
-        
-        self.wa_service.send_text_message(self.session.phone_number, message)
+        message += f"\n✅ Simulation sauvegardée avec succès !\n"
+        message += f"📱 Le client recevra les détails par SMS."
 
-        # Retour au menu
+        # Retour au menu — garder les données agent
         self.session.current_state = 'MENU_PRINCIPAL'
-        self.session.context = {}
+        self._clear_flow_context()
         self.session.save()
-        self.show_menu_principal()
+        self.show_menu_principal(prefix=message)
     
     # ========================================
     # HELPERS
