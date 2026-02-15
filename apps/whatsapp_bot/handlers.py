@@ -613,13 +613,13 @@ class ConversationHandler:
                 
                 message = (
                     f"✅ SOUSCRIPTION CRÉÉE !\n\n"
-                    f"📄 Police : {data['souscription']['numero_souscription']}\n"
-                    f"📦 Produit : {data['souscription']['produit']}\n"
-                    f"💰 Montant : {data['paiement']['montant']} FCFA\n\n"
+                    f"📄 Police : {data['numero_police']}\n"
+                    f"📦 Produit : {data['produit']}\n"
+                    f"💰 Montant : {data['montant']} FCFA\n\n"
                     f"📱 Paiement initié sur :\n"
-                    f"{data['client']['telephone']}\n\n"
+                    f"{data['telephone']}\n\n"
                     f"⏳ En attente de confirmation client...\n\n"
-                    f"Réf : {data['paiement']['numero_transaction']}\n\n"
+                    f"Réf : {data['numero_transaction']}\n\n"
                     f"Le client doit valider le paiement Mobile Money."
                 )
                 
