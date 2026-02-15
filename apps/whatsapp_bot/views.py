@@ -6,6 +6,7 @@ from django.db import transaction, IntegrityError
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 import json
+import hashlib
 import logging
 from .models import WhatsAppSession, WhatsAppMessage
 from .handlers import ConversationHandler
@@ -71,6 +72,13 @@ def whatsapp_webhook(request):
 
             if not phone_number or not text:
                 return JsonResponse({'status': 'invalid_data'})
+
+            # Garantir un message_id pour l'idempotence (PostgreSQL autorise
+            # plusieurs NULL dans une colonne unique, ce qui laisserait passer
+            # les doublons si Wassenger n'envoie pas d'ID).
+            if not message_id:
+                raw = f"{phone_number}:{text}:{msg_data.get('timestamp', '')}"
+                message_id = f"gen_{hashlib.sha256(raw.encode()).hexdigest()[:20]}"
 
             # Idempotence atomique : créer le message dans une transaction.
             # La contrainte unique sur whatsapp_message_id empêche les doublons.
